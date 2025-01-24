@@ -1,10 +1,28 @@
-Each CIP should have the following sections complete.
+Please make a copy of this folder for any new CIP. Any artifacts for that CIP should go inside that folder. 
 
-More information can be found in [CIP-0000](https://github.com/global-synchronizer-foundation/cips/blob/main/cip-0000/cip-0000.md).
+More information can be found in [CIP-0000](../../cips/cip-0000/cip-0000.md).
 
 ## Title
 
-Headers containing metadata about the CIP [see header instructions](https://github.com/global-synchronizer-foundation/cips/blob/main/cip-0000/cip-0000.md).
+<pre>
+  CIP: <CIP number, or "?" before being assigned>
+* Layer: <TBD> [TBD see Layer definition cip-XXXX](../../cips/blob/main/cip-XXXX).
+  Title: <CIP title; maximum 44 characters>
+  Author: <list of authors' real names and email addrs>
+* Discussions-To: <email address>
+* Comments-Summary: <summary tone>
+  Comments-URI: <links to wiki page for comments>
+  Status: <Draft | Active | Proposed | Deferred | Rejected |
+           Withdrawn | Final | Replaced | Obsolete>
+  Type: <Standards Track | Informational | Process>
+  Created: <date created on, in ISO 8601 (yyyy-mm-dd) format>
+  License: <abbreviation for approved license(s)>
+* License-Code: <abbreviation for code under different approved license(s)>
+* Post-History: <dates of postings to [https://lists.sync.global/g/cip-discuss] mailing list, or link to thread in mailing list archive>
+* Requires: <CIP number(s)>
+* Replaces: <CIP number>
+* Superseded-By: <CIP number>
+</pre>
 
 ## Abstract
 
@@ -12,7 +30,9 @@ A short (~200 word) description of the technical issue being addressed.
 
 ## Copyright
 
-The CIP must be explicitly licensed under acceptable copyright terms [see licensing recommendations](https://github.com/global-synchronizer-foundation/cips/blob/main/cip-0000/cip-0000.md).
+This CIP is licensed under CC0-1.0: [Creative Commons CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)
+
+Note: other licenses are avilable see recommendations in [cip-0000](../../cips/cip-0000/cip-0000.md)
 
 ## Specification
 
