@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Query GitHub Project for Moved Cards
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use Personal Access Token instead of default GITHUB_TOKEN
           PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK" # Replace with your actual project ID
         run: |
           echo "Fetching project data..."
@@ -41,7 +41,7 @@ jobs:
               }
             }
           }'
-          RESPONSE=$(gh api graphql -f query="$QUERY")
+          RESPONSE=$(GH_TOKEN=${{ secrets.PAT_TOKEN }} gh api graphql -f query="$QUERY")
 
           echo "GraphQL Response: $RESPONSE"
 
