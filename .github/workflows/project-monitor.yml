@@ -97,9 +97,14 @@ jobs:
             COLUMN_NAME="Unknown Column"
           fi
 
+          if [[ -z "$COLUMN_DESCRIPTION" || "$COLUMN_DESCRIPTION" == "null" ]]; then
+           COLUMN_DESCRIPTION="No description available."
+          fi
+
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
+          echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME"
 
       - name: Send Email via SendGrid API (GitHub Script)
