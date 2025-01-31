@@ -2,7 +2,7 @@ name: Monitor GitHub Project Moves
 
 on:
   # schedule:
-  #   - cron: "*/5 * * * *" # Runs every 5 minutes
+  #  - cron: "*/5 * * * *" # Runs every 5 minutes
   workflow_dispatch:
 
 jobs:
@@ -88,9 +88,9 @@ jobs:
 
           echo "GraphQL Response: $RESPONSE"
 
-          PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title // empty')
-          PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url // empty')
-          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name // empty')
+          PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title // "Unknown PR"')
+          PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url // "No link available"')
+          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name // "Unknown Column"')
           OPTION_ID=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .optionId // empty')
 
           COLUMN_DESCRIPTION=$(echo "$RESPONSE" | jq -r --arg optionId "$OPTION_ID" '
@@ -100,18 +100,11 @@ jobs:
             | select(.id==$optionId) 
             | .description // "No description available."')
 
-          if [[ -z "$PR_TITLE" || "$PR_TITLE" == "null" ]]; then
-            PR_TITLE="Unknown PR"
-          fi
-          if [[ -z "$PR_LINK" || "$PR_LINK" == "null" ]]; then
-            PR_LINK="No link available"
-          fi
-          if [[ -z "$COLUMN_NAME" || "$COLUMN_NAME" == "null" ]]; then
-            COLUMN_NAME="Unknown Column"
-          fi
-          if [[ -z "$COLUMN_DESCRIPTION" || "$COLUMN_DESCRIPTION" == "null" ]]; then
-            COLUMN_DESCRIPTION="No description available."
-          fi
+          echo "Setting PR environment variables..."
+          echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
+          echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
+          echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
+          echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
 
           LAST_PR_MOVE="${{ env.LAST_PR_MOVE }}"
           if [ -f "$LAST_PR_MOVE" ]; then
@@ -123,20 +116,17 @@ jobs:
 
             if [[ "$PR_TITLE" == "$LAST_PR_TITLE" && "$COLUMN_NAME" == "$LAST_COLUMN_NAME" ]]; then
               echo "✅ No PR move detected. Exiting."
-              exit 0  # Prevents unnecessary email
+              exit 0  # 🚨 Prevents unnecessary email
             fi
           fi
 
           echo "{\"title\": \"$PR_TITLE\", \"column\": \"$COLUMN_NAME\"}" > "$LAST_PR_MOVE"
           chmod 644 "$LAST_PR_MOVE"
 
-          echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
-          echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
-          echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
-          echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
 
       - name: Save Last PR Move State to Cache
+        if: success()
         uses: actions/cache@v4
         with:
           path: /tmp/last_pr_move.json
