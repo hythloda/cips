@@ -89,6 +89,7 @@ jobs:
           COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name')
           OPTION_ID=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .optionId')
 
+          # ✅ Fix column description retrieval
           COLUMN_DESCRIPTION=$(echo "$RESPONSE" | jq -r --arg optionId "$OPTION_ID" '
             .data.node.fields.nodes[] 
             | select(.name=="Status") 
@@ -119,6 +120,7 @@ jobs:
             fi
           fi
 
+          # ✅ Save new PR move state
           echo "{\"title\": \"$PR_TITLE\", \"column\": \"$COLUMN_NAME\"}" > "$LAST_PR_MOVE"
 
           if [ -f "$LAST_PR_MOVE" ]; then
@@ -143,7 +145,7 @@ jobs:
           name: last-pr-move
           path: /tmp/artifacts/last_pr_move.json
           retention-days: 7
-          if-no-files-found: warn # ✅ Warn instead of failing
+          if-no-files-found: error # ✅ Ensures file exists
 
       - name: Send Email via SendGrid API (GitHub Script)
         uses: actions/github-script@v6
