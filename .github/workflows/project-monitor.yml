@@ -16,6 +16,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
+      - name: Ensure Artifacts Directory Exists
+        run: mkdir -p /tmp/artifacts
+
+      - name: Download Last PR Move Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: last-pr-move
+          path: /tmp/artifacts
+        continue-on-error: true
+
       - name: Download Last PR Move Artifact
         uses: actions/download-artifact@v4
         with:
@@ -26,6 +36,8 @@ jobs:
       - name: Load Last PR Move State
         run: |
           LAST_PR_MOVE="/tmp/artifacts/last_pr_move.json"
+
+          # ✅ Ensure the file exists before reading it
           if [ -f "$LAST_PR_MOVE" ]; then
             echo "✅ Found previous PR move state:"
             cat "$LAST_PR_MOVE"
@@ -33,6 +45,7 @@ jobs:
             echo "⚠️ No previous PR move state found. Creating a new one."
             echo '{}' > "$LAST_PR_MOVE"
           fi
+
           echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
 
       - name: Query GitHub Project for Moved Cards
