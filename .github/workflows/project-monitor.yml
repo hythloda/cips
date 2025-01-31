@@ -130,15 +130,26 @@ jobs:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
         with:
           script: |
-            const columnName = process.env.COLUMN_NAME || "Unknown Column";
+            const columnName = (process.env.COLUMN_NAME || "unknown-column")
+              .toLowerCase()   
+              .replace(/\s+/g, '-') 
+              .replace(/[^a-z0-9-]/g, '');
             const columnDescription = process.env.COLUMN_DESCRIPTION || "No description available.";
 
+            const columnEmailMapping = {
+              "cip-announce": "amartin@linuxfoundation.org",
+              "cip-vote": "amanda@riscv.org",
+              "cip-discuss": "amanda@r-consortium.org",
+              "draft": "amartin@linuxfoundation.org"
+            };
+
+            const emailRecipient = columnEmailMapping[columnName] || `amartin@linuxfoundation.org`;
             const subject = `${process.env.PR_TITLE} is in ${columnName}`;
-            const body = `Hello,\n\n${process.env.PR_TITLE} is now in ${columnName}.\n\n ${process.env.PR_TITLE} ${columnDescription}\n\nLink to PR: ${process.env.PR_LINK}\n\nPlease let us know if you have any questions or concerns.`;
+            const body = `Hello,\n\n${process.env.PR_TITLE} ${columnDescription}\n\nLink to PR: ${process.env.PR_LINK}\n\nPlease let us know if you have any questions or concerns.`;
 
             const payload = {
               personalizations: [{
-                to: [{ email: "amartin@linuxfoundation.org" }]
+                to: [{ email: emailRecipient }]
               }],
               from: { email: "amartin@linuxfoundation.org" },
               subject: subject,
@@ -151,6 +162,7 @@ jobs:
               }
             };
 
+            console.log(`📤 Sending email to: ${emailRecipient}`);
             console.log("📤 Sending email with this JSON payload:");
             console.log(JSON.stringify(payload, null, 2));
 
