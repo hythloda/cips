@@ -11,40 +11,25 @@ jobs:
     steps:
       - name: Extract PR Info
         run: |
-          echo "PR Title: ${{ github.event.project_card.note }}"
-          echo "New Column Name: ${{ github.event.project_card.column_name }}"
-          echo "PR URL: ${{ github.event.project_card.content_url }}"
-
-      - name: Determine Email Recipient
-        id: email_recipient
-        run: |
-          COLUMN_NAME="${{ github.event.project_card.column_name }}"
           PR_TITLE="${{ github.event.project_card.note }}"
           PR_LINK="${{ github.event.project_card.content_url }}"
 
-          # Set test email
-          EMAIL_TO="amartin@linuxfoundation.org"
-
-          # Ensure PR_TITLE is not empty, otherwise use 'Unknown PR'
+          # Ensure PR_TITLE and PR_LINK are not empty
           if [[ -z "$PR_TITLE" ]]; then
             PR_TITLE="Unknown PR"
           fi
-
-          # Ensure PR_LINK is not empty
           if [[ -z "$PR_LINK" ]]; then
             PR_LINK="No link available"
           fi
 
-          # Set environment variables
-          echo "EMAIL_TO=${EMAIL_TO}" >> $GITHUB_ENV
-          echo "SUBJECT=${PR_TITLE}" >> $GITHUB_ENV
-          echo "BODY=Hello,\n\nWe have created a draft of ${PR_TITLE} that is ready for your discussion.\n\nLink to PR: ${PR_LINK}" >> $GITHUB_ENV
+          # Set GitHub environment variables
+          echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
+          echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
 
-      - name: Debug Environment Variables
+      - name: Debug Email Content
         run: |
-          echo "EMAIL_TO: $EMAIL_TO"
-          echo "SUBJECT: $SUBJECT"
-          echo "BODY: $BODY"
+          echo "PR Title: $PR_TITLE"
+          echo "PR Link: $PR_LINK"
 
       - name: Send Email via SendGrid API (cURL)
         run: |
@@ -54,12 +39,12 @@ jobs:
             --header "Content-Type: application/json" \
             --data '{
               "personalizations": [{
-                "to": [{"email": "'"$EMAIL_TO"'"}]
+                "to": [{"email": "amartin@linuxfoundation.org"}]
               }],
               "from": {"email": "amartin@linuxfoundation.org"},
-              "subject": "'"${SUBJECT}"'",
+              "subject": "'"${{ env.PR_TITLE }}"' is in '${{ github.event.project_card.column_name }}'",
               "content": [{
                 "type": "text/plain",
-                "value": "'"${BODY}"'"
+                "value": "Hello,\n\nWe have created a draft of '${{ env.PR_TITLE }}' that is ready for your discussion.\n\nLink to PR: ${{ env.PR_LINK }}"
               }]
             }'
