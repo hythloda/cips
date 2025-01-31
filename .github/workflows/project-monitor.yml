@@ -12,7 +12,7 @@ jobs:
       - name: Query GitHub Project for Moved Cards
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK"
+          PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK" # Replace with your actual project ID
         run: |
           echo "Fetching project data..."
           QUERY='
@@ -31,8 +31,9 @@ jobs:
                     }
                     fieldValues(first: 10) {
                       nodes {
-                        name
-                        value
+                        ... on ProjectV2ItemFieldSingleSelectValue {
+                          name
+                        }
                       }
                     }
                   }
@@ -46,7 +47,7 @@ jobs:
 
           PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title')
           PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url')
-          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[0].value')
+          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[0].name')
 
           if [[ -n "$PR_TITLE" && -n "$COLUMN_NAME" ]]; then
             echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
