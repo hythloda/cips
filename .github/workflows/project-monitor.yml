@@ -9,6 +9,12 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
+      - name: Set Up Caching for Last PR Move
+        uses: actions/cache@v3
+        with:
+          path: .last_pr_move
+          key: last-pr-move-${{ github.run_id }}
+
       - name: Query GitHub Project for Moved Cards
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
@@ -74,7 +80,7 @@ jobs:
             COLUMN_DESCRIPTION="No description available."
           fi
 
-          # ✅ Check if PR move has changed before sending an email
+          # ✅ Load last PR move from cache
           LAST_PR_MOVE=".last_pr_move"
           if [ -f "$LAST_PR_MOVE" ]; then
             LAST_PR_TITLE=$(jq -r '.title' "$LAST_PR_MOVE")
@@ -86,7 +92,7 @@ jobs:
             fi
           fi
 
-          # ✅ Save the last PR move to prevent duplicate notifications
+          # ✅ Save the last PR move for future runs
           echo "{\"title\": \"$PR_TITLE\", \"column\": \"$COLUMN_NAME\"}" > "$LAST_PR_MOVE"
 
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
