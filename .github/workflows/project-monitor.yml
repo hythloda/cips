@@ -9,11 +9,11 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Set Up Caching for Last PR Move
-        uses: actions/cache@v3
+      - name: Download Last PR Move
+        uses: actions/download-artifact@v3
         with:
-          path: .last_pr_move
-          key: last-pr-move-${{ github.run_id }}
+          name: last-pr-move
+          path: .
 
       - name: Query GitHub Project for Moved Cards
         env:
@@ -80,8 +80,8 @@ jobs:
             COLUMN_DESCRIPTION="No description available."
           fi
 
-          # ✅ Load last PR move from cache
-          LAST_PR_MOVE=".last_pr_move"
+          # ✅ Load last PR move from file
+          LAST_PR_MOVE="last_pr_move.json"
           if [ -f "$LAST_PR_MOVE" ]; then
             LAST_PR_TITLE=$(jq -r '.title' "$LAST_PR_MOVE")
             LAST_COLUMN_NAME=$(jq -r '.column' "$LAST_PR_MOVE")
@@ -100,6 +100,12 @@ jobs:
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
           echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
+
+      - name: Upload Last PR Move
+        uses: actions/upload-artifact@v3
+        with:
+          name: last-pr-move
+          path: last_pr_move.json
 
       - name: Send Email via SendGrid API (GitHub Script)
         uses: actions/github-script@v6
