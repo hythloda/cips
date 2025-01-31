@@ -9,16 +9,30 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Check for Existing Cached PR Move
-        id: check-cache
+      - name: Set Up GitHub CLI
         run: |
-          echo "Checking for last-pr-move artifact..."
-          ARTIFACT_EXISTS=$(gh api repos/${{ github.repository }}/actions/artifacts --paginate | jq '.artifacts[] | select(.name == "last-pr-move") | .id' || echo "null")
-          if [[ "$ARTIFACT_EXISTS" == "null" ]]; then
-            echo "No previous artifact found. Skipping download."
+          echo "Configuring GitHub CLI..."
+          gh auth setup-git
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      - name: Download Last PR Move from Artifact
+        continue-on-error: true
+        run: |
+          echo "Attempting to download last PR move..."
+          gh run download -n last-pr-move || echo "⚠️ No previous artifact found. Proceeding without it."
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      - name: Load Last PR Move (If Exists)
+        run: |
+          LAST_PR_MOVE=".last_pr_move"
+          if [ -f "$LAST_PR_MOVE" ]; then
+            echo "✅ Found previous PR move state."
+            cat "$LAST_PR_MOVE"
           else
-            echo "Found artifact: $ARTIFACT_EXISTS. Downloading..."
-            gh run download -n last-pr-move || echo "Failed to download artifact, continuing without it."
+            echo "⚠️ No previous PR move state found, creating empty file."
+            echo '{}' > "$LAST_PR_MOVE"
           fi
 
       - name: Query GitHub Project for Moved Cards
