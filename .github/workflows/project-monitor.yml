@@ -134,7 +134,7 @@ jobs:
             const columnDescription = process.env.COLUMN_DESCRIPTION || "No description available.";
 
             const subject = `${process.env.PR_TITLE} is in ${columnName}`;
-            const body = `Hello,\n\n'${process.env.PR_TITLE}' is now in '${columnName}'.\n\n**Description:** ${columnDescription}\n\nLink to PR: ${process.env.PR_LINK}\n\nPlease let us know if you have any questions or concerns.`;
+            const body = `Hello,\n\n${process.env.PR_TITLE} is now in ${columnName}.\n\n ${process.env.PR_TITLE} ${columnDescription}\n\nLink to PR: ${process.env.PR_LINK}\n\nPlease let us know if you have any questions or concerns.`;
 
             const payload = {
               personalizations: [{
