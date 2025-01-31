@@ -1,24 +1,25 @@
-name: Monitor Project Board
+name: Monitor GitHub Project Moves
 
 on:
   schedule:
     - cron: "*/5 * * * *" # Runs every 5 minutes
-  workflow_dispatch: # Allows manual triggering
+  workflow_dispatch:
 
 jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Query Project Board for Moved Cards
+      - name: Query GitHub Project for Moved Cards
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PROJECT_ID: "YOUR_PROJECT_ID" # Replace with actual project ID
+          PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK" # Use your actual Project ID
         run: |
           echo "Fetching project data..."
           QUERY='
           {
-            organization(login: "YOUR_ORG") {
-              projectV2(number: YOUR_PROJECT_NUMBER) {
+            node(id: "'"$PROJECT_ID"'") {
+              ... on ProjectV2 {
+                id
                 items(first: 10) {
                   nodes {
                     id
@@ -43,10 +44,9 @@ jobs:
 
           echo "GraphQL Response: $RESPONSE"
 
-          # Parse and extract the latest PR moved
-          PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.organization.projectV2.items.nodes[0].content.title')
-          PR_LINK=$(echo "$RESPONSE" | jq -r '.data.organization.projectV2.items.nodes[0].content.url')
-          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.organization.projectV2.items.nodes[0].fieldValues.nodes[0].value')
+          PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title')
+          PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url')
+          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[0].value')
 
           if [[ -n "$PR_TITLE" && -n "$COLUMN_NAME" ]]; then
             echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
