@@ -9,11 +9,16 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Download Last PR Move
-        uses: actions/download-artifact@v4 # ✅ Updated to v4
-        with:
-          name: last-pr-move
-          path: .
+      - name: Check if Artifact Exists (Prevent Errors)
+        run: |
+          echo "Checking for last-pr-move artifact..."
+          ARTIFACT_EXISTS=$(gh api repos/${{ github.repository }}/actions/artifacts --paginate | jq '.artifacts[] | select(.name == "last-pr-move") | .id' || echo "null")
+          if [[ "$ARTIFACT_EXISTS" == "null" ]]; then
+            echo "No previous artifact found. Skipping download."
+          else
+            echo "Found artifact: $ARTIFACT_EXISTS. Proceeding with download."
+            gh run download -n last-pr-move || echo "Failed to download artifact, continuing without it."
+          fi
 
       - name: Query GitHub Project for Moved Cards
         env:
@@ -80,8 +85,8 @@ jobs:
             COLUMN_DESCRIPTION="No description available."
           fi
 
-          # ✅ Load last PR move from file
-          LAST_PR_MOVE="last_pr_move.json"
+          # ✅ Load last PR move from cache (if it exists)
+          LAST_PR_MOVE=".last_pr_move"
           if [ -f "$LAST_PR_MOVE" ]; then
             LAST_PR_TITLE=$(jq -r '.title' "$LAST_PR_MOVE")
             LAST_COLUMN_NAME=$(jq -r '.column' "$LAST_PR_MOVE")
@@ -101,11 +106,12 @@ jobs:
           echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
 
-      - name: Upload Last PR Move
-        uses: actions/upload-artifact@v4 # ✅ Updated to v4
+      - name: Upload Last PR Move (Ensure Persistence)
+        uses: actions/upload-artifact@v4 # ✅ Corrected artifact version
         with:
           name: last-pr-move
-          path: last_pr_move.json
+          path: .last_pr_move
+          retention-days: 7 # Keep artifact for 7 days
 
       - name: Send Email via SendGrid API (GitHub Script)
         uses: actions/github-script@v6
