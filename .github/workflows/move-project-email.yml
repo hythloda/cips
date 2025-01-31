@@ -33,10 +33,24 @@ jobs:
 
       - name: Send Email via SendGrid API (cURL)
         run: |
+          # Ensure variables are available
+          PR_TITLE="${{ env.PR_TITLE }}"
+          PR_LINK="${{ env.PR_LINK }}"
+          COLUMN_NAME="${{ github.event.project_card.column_name }}"
+
+          # Ensure PR_TITLE and PR_LINK are not empty
+          if [[ -z "$PR_TITLE" ]]; then
+            PR_TITLE="Unknown PR"
+          fi
+          if [[ -z "$PR_LINK" ]]; then
+            PR_LINK="No link available"
+          fi
+
+          # Construct JSON payload correctly
           JSON_DATA=$(jq -n \
             --arg email "amartin@linuxfoundation.org" \
             --arg from "amartin@linuxfoundation.org" \
-            --arg subject "$PR_TITLE is in ${{ github.event.project_card.column_name }}" \
+            --arg subject "$PR_TITLE is in $COLUMN_NAME" \
             --arg body "Hello,\n\nWe have created a draft of '$PR_TITLE' that is ready for your discussion.\n\nLink to PR: $PR_LINK" \
             '{
               "personalizations": [{
@@ -48,11 +62,13 @@ jobs:
                 "type": "text/plain",
                 "value": $body
               }]
-            }' | sed ':a;N;$!ba;s/\n/\\n/g')
+            }')
 
+          # Print JSON for debugging
           echo "JSON Payload:"
           echo "$JSON_DATA" | jq .
 
+          # Send email via SendGrid API
           curl --request POST \
             --url https://api.sendgrid.com/v3/mail/send \
             --header "Authorization: Bearer ${{ secrets.SENDGRID_API_KEY }}" \
