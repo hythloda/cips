@@ -9,6 +9,50 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug GitHub Project Data
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use PAT token instead of default GITHUB_TOKEN
+          PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK" # Replace with your actual project ID
+        run: |
+          echo "Fetching project data..."
+          QUERY='
+          {
+            node(id: "'"$PROJECT_ID"'") {
+              ... on ProjectV2 {
+                id
+                items(first: 5) {
+                  nodes {
+                    id
+                    content {
+                      ... on PullRequest {
+                        title
+                        url
+                      }
+                    }
+                    fieldValues(first: 10) {
+                      nodes {
+                        __typename
+                        ... on ProjectV2ItemFieldSingleSelectValue {
+                          name
+                        }
+                        ... on ProjectV2ItemFieldTextValue {
+                          text
+                        }
+                        ... on ProjectV2ItemFieldNumberValue {
+                          number
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }'
+          RESPONSE=$(gh api graphql -f query="$QUERY")
+
+          echo "Full GraphQL Response:"
+          echo "$RESPONSE"
+s
       - name: Query GitHub Project for Moved Cards
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use your PAT token instead of default GITHUB_TOKEN
