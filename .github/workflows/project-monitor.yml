@@ -52,7 +52,6 @@ jobs:
 
           echo "Full GraphQL Response:"
           echo "$RESPONSE"
-s
       - name: Query GitHub Project for Moved Cards
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use your PAT token instead of default GITHUB_TOKEN
