@@ -126,6 +126,7 @@ jobs:
           name: last-pr-move
           path: .last_pr_move
           retention-days: 7
+          if-no-files-found: error # ✅ Fail if the file is missing
 
       - name: Send Email via SendGrid API (GitHub Script)
         uses: actions/github-script@v6
