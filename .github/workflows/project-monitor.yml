@@ -91,7 +91,7 @@ jobs:
 
           PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title')
           PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url')
-          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.typename=="ProjectV2ItemFieldSingleSelectValue") | .name')
+          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name')
 
           if [[ -z "$COLUMN_NAME" || "$COLUMN_NAME" == "null" ]]; then
             COLUMN_NAME="Unknown Column"
