@@ -63,6 +63,18 @@ jobs:
             node(id: "'"$PROJECT_ID"'") {
               ... on ProjectV2 {
                 id
+                fields(first: 20) {  # Fetch all available fields (columns)
+                  nodes {
+                    ... on ProjectV2SingleSelectField {
+                      name
+                      options {
+                        id
+                        name
+                        description
+                      }
+                    }
+                  }
+                }
                 items(first: 10) {
                   nodes {
                     id
@@ -77,6 +89,7 @@ jobs:
                         __typename
                         ... on ProjectV2ItemFieldSingleSelectValue {
                           name
+                          optionId
                         }
                       }
                     }
@@ -92,20 +105,23 @@ jobs:
           PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title')
           PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url')
           COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name')
+          OPTION_ID=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .optionId')
+
+          COLUMN_DESCRIPTION=$(echo "$RESPONSE" | jq -r '.data.node.fields.nodes[] | select(.name=="Status") | .options[] | select(.id=="'"$OPTION_ID"'") | .description')
 
           if [[ -z "$COLUMN_NAME" || "$COLUMN_NAME" == "null" ]]; then
             COLUMN_NAME="Unknown Column"
           fi
 
           if [[ -z "$COLUMN_DESCRIPTION" || "$COLUMN_DESCRIPTION" == "null" ]]; then
-           COLUMN_DESCRIPTION="No description available."
+            COLUMN_DESCRIPTION="No description available."
           fi
 
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
           echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
-          echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME"
+          echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
 
       - name: Send Email via SendGrid API (GitHub Script)
         if: env.PR_TITLE != ''
@@ -114,35 +130,24 @@ jobs:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
         with:
           script: |
-            const apiKey = process.env.SENDGRID_API_KEY;
-            if (!apiKey) {
-              console.log("❌ SendGrid API key is missing!");
-              process.exit(1);
-            }
-
-            const emailRecipient = "amartin@linuxfoundation.org";
-            const emailSender = "amartin@linuxfoundation.org";
-            const prTitle = process.env.PR_TITLE || "Unknown PR";
-            const prLink = process.env.PR_LINK || "No link available";
             const columnName = process.env.COLUMN_NAME || "Unknown Column";
             const columnDescription = process.env.COLUMN_DESCRIPTION || "No description available.";
 
-
-            const subject = `${prTitle} ${columnDescription}`;
-            const body = `Hello,\n\n'${prTitle}' '${columnDescription}' \n\nLink to PR: ${prLink}\n\nPlease let us know if you have questions of concerns.`;
+            const subject = `${process.env.PR_TITLE} is in ${columnName}`;
+            const body = `Hello,\n\n'${process.env.PR_TITLE}' is now in '${columnName}'.\n\n**Description:** ${columnDescription}\n\nLink to PR: ${process.env.PR_LINK}\n\nPlease let us know if you have any questions or concerns.`;
 
             const payload = {
               personalizations: [{
-                to: [{ email: emailRecipient }]
+                to: [{ email: "amartin@linuxfoundation.org" }]
               }],
-              from: { email: emailSender },
+              from: { email: "amartin@linuxfoundation.org" },
               subject: subject,
               content: [{
                 type: "text/plain",
                 value: body
               }],
               tracking_settings: {
-                click_tracking: { enable: false }  // 🔹 Disables link tracking
+                click_tracking: { enable: false }
               }
             };
 
@@ -152,7 +157,7 @@ jobs:
             const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
               method: "POST",
               headers: {
-                "Authorization": `Bearer ${apiKey}`,
+                "Authorization": `Bearer ${process.env.SENDGRID_API_KEY}`,
                 "Content-Type": "application/json"
               },
               body: JSON.stringify(payload)
