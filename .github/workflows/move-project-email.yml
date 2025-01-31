@@ -56,7 +56,7 @@ jobs:
               "personalizations": [{
                 "to": [{"email": "'"$EMAIL_TO"'"}]
               }],
-              "from": {"email": "github-bot@sync.global"},
+              "from": {"email": "amartin@linuxfoundation.org"},
               "subject": "'"${SUBJECT}"'",
               "content": [{
                 "type": "text/plain",
