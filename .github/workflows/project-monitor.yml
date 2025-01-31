@@ -107,6 +107,12 @@ jobs:
           echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
 
+      - name: Debug Last PR Move File
+        run: |
+          echo "Checking if .last_pr_move was created..."
+          ls -lah .last_pr_move || echo "File .last_pr_move not found!"
+          cat .last_pr_move || echo "File is empty!"
+
       - name: Ensure Cache File Exists Before Uploading
         run: |
           if [ ! -f ".last_pr_move" ]; then
@@ -115,11 +121,11 @@ jobs:
           fi
 
       - name: Upload Last PR Move (Ensure Persistence)
-        uses: actions/upload-artifact@v4 # ✅ Corrected artifact version
+        uses: actions/upload-artifact@v4
         with:
           name: last-pr-move
           path: .last_pr_move
-          retention-days: 7 # Keep artifact for 7 days
+          retention-days: 7
 
       - name: Send Email via SendGrid API (GitHub Script)
         uses: actions/github-script@v6
