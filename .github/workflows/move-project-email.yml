@@ -33,18 +33,25 @@ jobs:
 
       - name: Send Email via SendGrid API (cURL)
         run: |
+          JSON_DATA=$(jq -n \
+            --arg email "amartin@linuxfoundation.org" \
+            --arg from "amartin@linuxfoundation.org" \
+            --arg subject "${{ env.PR_TITLE }} is in ${{ github.event.project_card.column_name }}" \
+            --arg body "Hello,\n\nWe have created a draft of '${{ env.PR_TITLE }}' that is ready for your discussion.\n\nLink to PR: ${{ env.PR_LINK }}" \
+            '{
+              "personalizations": [{
+                "to": [{"email": $email}]
+              }],
+              "from": {"email": $from},
+              "subject": $subject,
+              "content": [{
+                "type": "text/plain",
+                "value": $body
+              }]
+            }')
+
           curl --request POST \
             --url https://api.sendgrid.com/v3/mail/send \
             --header "Authorization: Bearer ${{ secrets.SENDGRID_API_KEY }}" \
             --header "Content-Type: application/json" \
-            --data '{
-              "personalizations": [{
-                "to": [{"email": "amartin@linuxfoundation.org"}]
-              }],
-              "from": {"email": "amartin@linuxfoundation.org"},
-              "subject": "'"${{ env.PR_TITLE }}"' is in '${{ github.event.project_card.column_name }}'",
-              "content": [{
-                "type": "text/plain",
-                "value": "Hello,\n\nWe have created a draft of '${{ env.PR_TITLE }}' that is ready for your discussion.\n\nLink to PR: ${{ env.PR_LINK }}"
-              }]
-            }'
+            --data "$JSON_DATA"
