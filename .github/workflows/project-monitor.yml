@@ -20,12 +20,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
-      - name: Download Last PR Move Artifact (Handle Missing Case)
-        uses: actions/download-artifact@v4
-        with:
-          name: last-pr-move
-          path: /tmp
-        continue-on-error: true # ✅ Prevents failure if the artifact is missing
+      - name: Attempt to Download Last PR Move Artifact
+        continue-on-error: true
+        run: |
+          echo "🔍 Attempting to download last PR move artifact..."
+          if gh api repos/${{ github.repository }}/actions/artifacts --paginate | jq -e '.artifacts | map(select(.name == "last-pr-move")) | length > 0' >/dev/null; then
+            echo "✅ Artifact exists, downloading..."
+            gh run download -n last-pr-move -D /tmp || echo "⚠️ Failed to download artifact, continuing without it."
+          else
+            echo "⚠️ No previous artifact found. Proceeding without it."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Load Last PR Move State
         run: |
@@ -147,7 +153,7 @@ jobs:
           name: last-pr-move
           path: /tmp/last_pr_move.json
           retention-days: 7
-          if-no-files-found: error # ✅ Ensures file exists
+          if-no-files-found: warn # ✅ Warn instead of failing
 
       - name: Send Email via SendGrid API (GitHub Script)
         uses: actions/github-script@v6
