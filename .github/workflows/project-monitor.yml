@@ -9,53 +9,10 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Debug GitHub Project Data
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use PAT token instead of default GITHUB_TOKEN
-          PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK" # Replace with your actual project ID
-        run: |
-          echo "Fetching project data..."
-          QUERY='
-          {
-            node(id: "'"$PROJECT_ID"'") {
-              ... on ProjectV2 {
-                id
-                items(first: 5) {
-                  nodes {
-                    id
-                    content {
-                      ... on PullRequest {
-                        title
-                        url
-                      }
-                    }
-                    fieldValues(first: 10) {
-                      nodes {
-                        __typename
-                        ... on ProjectV2ItemFieldSingleSelectValue {
-                          name
-                        }
-                        ... on ProjectV2ItemFieldTextValue {
-                          text
-                        }
-                        ... on ProjectV2ItemFieldNumberValue {
-                          number
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }'
-          RESPONSE=$(gh api graphql -f query="$QUERY")
-
-          echo "Full GraphQL Response:"
-          echo "$RESPONSE"
       - name: Query GitHub Project for Moved Cards
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use PAT token instead of default GITHUB_TOKEN
-          PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK" # Replace with your actual project ID
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK"
         run: |
           echo "Fetching project data..."
           QUERY='
@@ -63,7 +20,7 @@ jobs:
             node(id: "'"$PROJECT_ID"'") {
               ... on ProjectV2 {
                 id
-                fields(first: 20) {  # Fetch all available fields (columns)
+                fields(first: 20) {
                   nodes {
                     ... on ProjectV2SingleSelectField {
                       name
@@ -117,6 +74,21 @@ jobs:
             COLUMN_DESCRIPTION="No description available."
           fi
 
+          # ✅ Check if PR move has changed before sending an email
+          LAST_PR_MOVE=".last_pr_move"
+          if [ -f "$LAST_PR_MOVE" ]; then
+            LAST_PR_TITLE=$(jq -r '.title' "$LAST_PR_MOVE")
+            LAST_COLUMN_NAME=$(jq -r '.column' "$LAST_PR_MOVE")
+
+            if [[ "$PR_TITLE" == "$LAST_PR_TITLE" && "$COLUMN_NAME" == "$LAST_COLUMN_NAME" ]]; then
+              echo "✅ No PR move detected. Exiting."
+              exit 0  # 🔹 Prevents unnecessary email
+            fi
+          fi
+
+          # ✅ Save the last PR move to prevent duplicate notifications
+          echo "{\"title\": \"$PR_TITLE\", \"column\": \"$COLUMN_NAME\"}" > "$LAST_PR_MOVE"
+
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
@@ -124,7 +96,6 @@ jobs:
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
 
       - name: Send Email via SendGrid API (GitHub Script)
-        if: env.PR_TITLE != ''
         uses: actions/github-script@v6
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
@@ -136,6 +107,7 @@ jobs:
               .replace(/[^a-z0-9-]/g, '');
             const columnDescription = process.env.COLUMN_DESCRIPTION || "No description available.";
 
+            // ✅ Dynamic email mapping based on column name
             const columnEmailMapping = {
               "cip-announce": "amartin@linuxfoundation.org",
               "cip-vote": "amanda@riscv.org",
