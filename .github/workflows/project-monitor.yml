@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Query GitHub Project for Moved Cards
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use Personal Access Token instead of default GITHUB_TOKEN
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use your PAT token instead of default GITHUB_TOKEN
           PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK" # Replace with your actual project ID
         run: |
           echo "Fetching project data..."
@@ -31,6 +31,7 @@ jobs:
                     }
                     fieldValues(first: 10) {
                       nodes {
+                        __typename
                         ... on ProjectV2ItemFieldSingleSelectValue {
                           name
                         }
@@ -41,7 +42,7 @@ jobs:
               }
             }
           }'
-          RESPONSE=$(GH_TOKEN=${{ secrets.PAT_TOKEN }} gh api graphql -f query="$QUERY")
+          RESPONSE=$(gh api graphql -f query="$QUERY")
 
           echo "GraphQL Response: $RESPONSE"
 
@@ -49,15 +50,14 @@ jobs:
           PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url')
           COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[0].name')
 
-          if [[ -n "$PR_TITLE" && -n "$COLUMN_NAME" ]]; then
-            echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
-            echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
-            echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
-            echo "Detected PR: $PR_TITLE moved to $COLUMN_NAME"
-          else
-            echo "No PR move detected"
-            exit 0
+          if [[ -z "$COLUMN_NAME" || "$COLUMN_NAME" == "null" ]]; then
+            COLUMN_NAME="Unknown Column"
           fi
+
+          echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
+          echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
+          echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
+          echo "Detected PR: $PR_TITLE moved to $COLUMN_NAME"
 
       - name: Send Email via SendGrid API (GitHub Script)
         if: env.PR_TITLE != ''
