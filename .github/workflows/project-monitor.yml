@@ -124,8 +124,9 @@ jobs:
       - name: Debug Last PR Move File
         run: |
           echo "Checking if .last_pr_move was created..."
-          ls -lah .last_pr_move || echo "File .last_pr_move not found!"
-          cat .last_pr_move || echo "File is empty!"
+          ls -lah . || echo "⚠️ Current directory is empty!"
+          ls -lah .last_pr_move || echo "⚠️ File .last_pr_move not found!"
+          cat .last_pr_move || echo "⚠️ File is empty!"
 
       - name: Ensure Cache File Exists Before Uploading
         run: |
@@ -133,6 +134,7 @@ jobs:
             echo "Error: .last_pr_move not found! Creating a default empty state."
             echo "{}" > .last_pr_move
           fi
+          chmod 644 .last_pr_move # ✅ Fix file permission issue
 
       - name: Upload Last PR Move (Ensure Persistence)
         uses: actions/upload-artifact@v4
