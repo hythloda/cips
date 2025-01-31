@@ -1,7 +1,7 @@
 name: Monitor GitHub Project Moves
 
 on:
-  # schedule:
+  #schedule:
   #  - cron: "*/5 * * * *" # Runs every 5 minutes
   workflow_dispatch:
 
@@ -36,6 +36,7 @@ jobs:
           cat "$LAST_PR_MOVE" || echo "{}"
 
           echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
+          echo "EMAIL_SHOULD_SEND=true" >> $GITHUB_ENV # Default to sending email
 
       - name: Query GitHub Project for Moved Cards
         id: query-project
@@ -116,7 +117,8 @@ jobs:
 
             if [[ "$PR_TITLE" == "$LAST_PR_TITLE" && "$COLUMN_NAME" == "$LAST_COLUMN_NAME" ]]; then
               echo "✅ No PR move detected. Exiting."
-              exit 0  # 🚨 Prevents unnecessary email
+              echo "EMAIL_SHOULD_SEND=false" >> $GITHUB_ENV  # 🚨 Stop email from sending
+              exit 0
             fi
           fi
 
@@ -133,7 +135,7 @@ jobs:
           key: last-pr-move-cache
 
       - name: Send Email via SendGrid API (GitHub Script)
-        if: success() && env.PR_TITLE != 'Unknown PR'
+        if: env.EMAIL_SHOULD_SEND == 'true'
         uses: actions/github-script@v6
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
