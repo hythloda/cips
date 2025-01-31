@@ -46,7 +46,7 @@ jobs:
               "subject": $subject,
               "content": [{
                 "type": "text/plain",
-                "value": $body
+                "value": $body | gsub("\n"; "\n")
               }]
             }')
 
