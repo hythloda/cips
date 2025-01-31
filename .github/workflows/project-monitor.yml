@@ -1,8 +1,8 @@
 name: Monitor GitHub Project Moves
 
 on:
-  #schedule:
-  #  - cron: "*/5 * * * *" # Runs every 5 minutes
+  schedule:
+    - cron: "*/5 * * * *" # Runs every 5 minutes
   workflow_dispatch:
 
 jobs:
@@ -10,11 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Restore Last PR Move State from Cache
-        id: cache-last-pr
+        id: cache-restore
         uses: actions/cache@v4
         with:
           path: /tmp/last_pr_move.json
           key: last-pr-move-cache
+          restore-keys: last-pr-move-cache
 
       - name: Ensure Last PR Move File Exists
         run: |
