@@ -1,0 +1,38 @@
+name: Notify on PR Move to CIP Columns
+
+on:
+  project_card:
+    types: [moved]
+
+jobs:
+  send_email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract PR Info
+        run: |
+          echo "${{ github.event.project_card.note }}" 
+          echo "${{ github.event.project_card.column_name }}"
+
+      - name: Determine Email Recipient
+        id: email_recipient
+        run: |
+          COLUMN_NAME="${{ github.event.project_card.column_name }}"
+          EMAIL_TO="amartin@linuxfoundation.org"
+          PR_TITLE="${{ github.event.project_card.note }}"
+          PR_LINK="${{ github.event.project_card.content_url }}"
+          echo "EMAIL_TO=${EMAIL_TO}" >> $GITHUB_ENV
+          echo "SUBJECT=${{ github.event.project_card.note }}" >> $GITHUB_ENV
+          echo "BODY=Hello,\n\nWe have created a draft of ${PR_TITLE} that is ready for your discussion.\n\nLink to PR: ${PR_LINK}" >> $GITHUB_ENV
+
+      - name: Send Test Email via SendGrid
+        if: env.EMAIL_TO != ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.sendgrid.net
+          server_port: 587
+          username: "apikey"
+          password: ${{ secrets.SENDGRID_API_KEY }}
+          subject: "${{ env.SUBJECT }}"
+          body: "${{ env.BODY }}"
+          to: "${{ env.EMAIL_TO }}"
+          from: "github-bot@sync.global"
