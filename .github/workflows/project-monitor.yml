@@ -2,7 +2,7 @@ name: Monitor GitHub Project Moves
 
 on:
   schedule:
-    - cron: "*/5 * * * *" # Runs every 5 minutes
+  #  - cron: "*/5 * * * *" # Runs every 5 minutes
   workflow_dispatch:
 
 jobs:
@@ -15,36 +15,28 @@ jobs:
           LAST_PR_MOVE="/tmp/last_pr_move.json"
           if [ ! -f "$LAST_PR_MOVE" ]; then
             echo "⚠️ No previous PR move state found. Creating a new one."
-            echo '{}' > "$LAST_PR_MOVE"
+            echo '{"title": "INIT", "column": "INIT"}' > "$LAST_PR_MOVE"
           fi
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
-      - name: Attempt to Download Last PR Move Artifact
-        continue-on-error: true
-        run: |
-          echo "🔍 Attempting to download last PR move artifact..."
-          if gh api repos/${{ github.repository }}/actions/artifacts --paginate | jq -e '.artifacts | map(select(.name == "last-pr-move")) | length > 0' >/dev/null; then
-            echo "✅ Artifact exists, downloading..."
-            gh run download -n last-pr-move -D /tmp || echo "⚠️ Failed to download artifact, continuing without it."
-          else
-            echo "⚠️ No previous artifact found. Proceeding without it."
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+      - name: Download Last PR Move Artifact (Gracefully Handle Missing)
+        uses: actions/download-artifact@v4
+        with:
+          name: last-pr-move
+          path: /tmp
+        continue-on-error: true # ✅ Prevents failure when artifact is missing
 
       - name: Load Last PR Move State
         run: |
           LAST_PR_MOVE="/tmp/last_pr_move.json"
-
           if [ -f "$LAST_PR_MOVE" ]; then
             echo "✅ Found previous PR move state:"
             cat "$LAST_PR_MOVE"
           else
             echo "⚠️ No previous PR move state found. Creating a new one."
-            echo '{}' > "$LAST_PR_MOVE"
+            echo '{"title": "INIT", "column": "INIT"}' > "$LAST_PR_MOVE"
           fi
-
           echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
 
       - name: Query GitHub Project for Moved Cards
@@ -102,7 +94,6 @@ jobs:
           COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name')
           OPTION_ID=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .optionId')
 
-          # ✅ Fix column description retrieval
           COLUMN_DESCRIPTION=$(echo "$RESPONSE" | jq -r --arg optionId "$OPTION_ID" '
             .data.node.fields.nodes[] 
             | select(.name=="Status") 
@@ -110,7 +101,6 @@ jobs:
             | select(.id==$optionId) 
             | .description // "No description available."')
 
-          # ✅ Ensure values are set
           if [[ -z "$COLUMN_NAME" || "$COLUMN_NAME" == "null" ]]; then
             COLUMN_NAME="Unknown Column"
           fi
@@ -119,7 +109,6 @@ jobs:
             COLUMN_DESCRIPTION="No description available."
           fi
 
-          # ✅ Load last PR move state and compare
           LAST_PR_MOVE="${{ env.LAST_PR_MOVE }}"
           if [ -f "$LAST_PR_MOVE" ]; then
             LAST_PR_TITLE=$(jq -r '.title' "$LAST_PR_MOVE")
@@ -134,12 +123,8 @@ jobs:
             fi
           fi
 
-          # ✅ Save new PR move state
           echo "{\"title\": \"$PR_TITLE\", \"column\": \"$COLUMN_NAME\"}" > "$LAST_PR_MOVE"
-
-          if [ -f "$LAST_PR_MOVE" ]; then
-            chmod 644 "$LAST_PR_MOVE"
-          fi
+          chmod 644 "$LAST_PR_MOVE"
 
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
@@ -153,7 +138,7 @@ jobs:
           name: last-pr-move
           path: /tmp/last_pr_move.json
           retention-days: 7
-          if-no-files-found: warn # ✅ Warn instead of failing
+          if-no-files-found: error # ✅ Ensures the artifact is always uploaded
 
       - name: Send Email via SendGrid API (GitHub Script)
         uses: actions/github-script@v6
