@@ -59,34 +59,53 @@ jobs:
             exit 0
           fi
 
-      - name: Trigger Email Notification
+      - name: Send Email via SendGrid API (GitHub Script)
         if: env.PR_TITLE != ''
         uses: actions/github-script@v6
         with:
           script: |
-            const body = {
+            const apiKey = process.env.SENDGRID_API_KEY;
+            if (!apiKey) {
+              console.log("SendGrid API key is missing!");
+              process.exit(1);
+            }
+
+            const emailRecipient = "amartin@linuxfoundation.org";
+            const emailSender = "amartin@linuxfoundation.org";
+            const prTitle = process.env.PR_TITLE || "Unknown PR";
+            const prLink = process.env.PR_LINK || "No link available";
+            const columnName = process.env.COLUMN_NAME || "Unknown Column";
+
+            const subject = `${prTitle} is in ${columnName}`;
+            const body = `Hello,\n\nWe have created a draft of '${prTitle}' that is ready for your discussion.\n\nLink to PR: ${prLink}`;
+
+            const payload = {
               personalizations: [{
-                to: [{ email: "amartin@linuxfoundation.org" }]
+                to: [{ email: emailRecipient }]
               }],
-              from: { email: "amartin@linuxfoundation.org" },
-              subject: `${process.env.PR_TITLE} is in ${process.env.COLUMN_NAME || "an unknown column"}`,
+              from: { email: emailSender },
+              subject: subject,
               content: [{
                 type: "text/plain",
-                value: `Hello,\n\nWe have created a draft of '${process.env.PR_TITLE}' that is ready for your discussion.\n\nLink to PR: ${process.env.PR_LINK}`
+                value: body
               }]
             };
 
             console.log("Sending email with this JSON payload:");
-            console.log(JSON.stringify(body, null, 2));
+            console.log(JSON.stringify(payload, null, 2));
 
             const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
               method: "POST",
               headers: {
-                "Authorization": `Bearer ${process.env.SENDGRID_API_KEY}`,
+                "Authorization": `Bearer ${apiKey}`,
                 "Content-Type": "application/json"
               },
-              body: JSON.stringify(body)
+              body: JSON.stringify(payload)
             });
 
             console.log(`SendGrid Response Status: ${response.status}`);
             console.log(`SendGrid Response Body:`, await response.text());
+
+            if (!response.ok) {
+              process.exit(1);
+            }
