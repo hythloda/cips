@@ -63,7 +63,7 @@ jobs:
         if: env.PR_TITLE != ''
         uses: actions/github-script@v6
         env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }} # Explicitly pass the secret
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
         with:
           script: |
             const apiKey = process.env.SENDGRID_API_KEY;
@@ -90,7 +90,10 @@ jobs:
               content: [{
                 type: "text/plain",
                 value: body
-              }]
+              }],
+              tracking_settings: {
+                click_tracking: { enable: false }  // 🔹 Disables link tracking
+              }
             };
 
             console.log("📤 Sending email with this JSON payload:");
