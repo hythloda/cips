@@ -53,7 +53,7 @@ jobs:
           server_address: smtp.sendgrid.net
           server_port: 587
           username: "cips"
-          password: ${{ secrets.CIPS }}
+          password: ${{ secrets.SENDGRID_API_KEY }}
           subject: "${{ env.SUBJECT }}"
           body: "${{ env.BODY }}"
           to: "${{ env.EMAIL_TO }}"
