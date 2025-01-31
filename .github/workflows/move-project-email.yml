@@ -46,15 +46,20 @@ jobs:
           echo "SUBJECT: $SUBJECT"
           echo "BODY: $BODY"
 
-      - name: Send Test Email via SendGrid
-        if: env.EMAIL_TO != ''
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.sendgrid.net
-          server_port: 587
-          username: "cips"
-          password: ${{ secrets.SENDGRID_API_KEY }}
-          subject: "${{ env.SUBJECT }}"
-          body: "${{ env.BODY }}"
-          to: "${{ env.EMAIL_TO }}"
-          from: "github-bot@sync.global"
+      - name: Send Email via SendGrid API (cURL)
+        run: |
+          curl --request POST \
+            --url https://api.sendgrid.com/v3/mail/send \
+            --header "Authorization: Bearer ${{ secrets.SENDGRID_API_KEY }}" \
+            --header "Content-Type: application/json" \
+            --data '{
+              "personalizations": [{
+                "to": [{"email": "'"$EMAIL_TO"'"}]
+              }],
+              "from": {"email": "github-bot@sync.global"},
+              "subject": "'"${SUBJECT}"'",
+              "content": [{
+                "type": "text/plain",
+                "value": "'"${BODY}"'"
+              }]
+            }'
