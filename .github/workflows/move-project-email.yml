@@ -22,7 +22,7 @@ jobs:
             PR_LINK="No link available"
           fi
 
-          # Set GitHub environment variables
+          # Set GitHub environment variables (for use in later steps)
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
 
@@ -36,8 +36,8 @@ jobs:
           JSON_DATA=$(jq -n \
             --arg email "amartin@linuxfoundation.org" \
             --arg from "amartin@linuxfoundation.org" \
-            --arg subject "${{ env.PR_TITLE }} is in ${{ github.event.project_card.column_name }}" \
-            --arg body "Hello,\n\nWe have created a draft of '${{ env.PR_TITLE }}' that is ready for your discussion.\n\nLink to PR: ${{ env.PR_LINK }}" \
+            --arg subject "$PR_TITLE is in ${{ github.event.project_card.column_name }}" \
+            --arg body "Hello,\n\nWe have created a draft of '$PR_TITLE' that is ready for your discussion.\n\nLink to PR: $PR_LINK" \
             '{
               "personalizations": [{
                 "to": [{"email": $email}]
@@ -46,9 +46,12 @@ jobs:
               "subject": $subject,
               "content": [{
                 "type": "text/plain",
-                "value": $body | gsub("\n"; "\n")
+                "value": $body
               }]
-            }')
+            }' | sed ':a;N;$!ba;s/\n/\\n/g')
+
+          echo "JSON Payload:"
+          echo "$JSON_DATA" | jq .
 
           curl --request POST \
             --url https://api.sendgrid.com/v3/mail/send \
