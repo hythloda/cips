@@ -108,7 +108,10 @@ jobs:
           fi
 
           echo "{\"title\": \"$PR_TITLE\", \"column\": \"$COLUMN_NAME\"}" > "$LAST_PR_MOVE"
-          chmod 644 "$LAST_PR_MOVE"
+
+          if [ -f "$LAST_PR_MOVE" ]; then
+            chmod 644 "$LAST_PR_MOVE"
+          fi
 
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
@@ -119,7 +122,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: last-pr-move
-          path: ${{ env.LAST_PR_MOVE }}
+          path: /tmp/artifacts/last_pr_move.json
           retention-days: 7
           if-no-files-found: error # ✅ Fail if the file is missing
 
