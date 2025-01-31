@@ -120,9 +120,11 @@ jobs:
             const prTitle = process.env.PR_TITLE || "Unknown PR";
             const prLink = process.env.PR_LINK || "No link available";
             const columnName = process.env.COLUMN_NAME || "Unknown Column";
+            const columnDescription = process.env.COLUMN_DESCRIPTION || "No description available.";
 
-            const subject = `${prTitle} is in ${columnName}`;
-            const body = `Hello,\n\nWe have created a draft of '${prTitle}' that is ready for your discussion.\n\nLink to PR: ${prLink}`;
+
+            const subject = `${prTitle} ${columnDescription}`;
+            const body = `Hello,\n\n'${prTitle}' '${columnDescription}' \n\nLink to PR: ${prLink}\n\nPlease let us know if you have questions of concerns.`;
 
             const payload = {
               personalizations: [{
