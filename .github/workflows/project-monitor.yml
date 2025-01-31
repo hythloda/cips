@@ -9,31 +9,21 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Set Up GitHub CLI
+      - name: Check If Previous PR Move Exists
+        id: check-cache
         run: |
-          echo "Configuring GitHub CLI..."
-          gh auth setup-git
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          echo "Checking for last-pr-move artifact..."
+          ARTIFACT_PATH="/tmp/last_pr_move.json"
 
-      - name: Download Last PR Move from Artifact
-        continue-on-error: true
-        run: |
-          echo "Attempting to download last PR move..."
-          gh run download -n last-pr-move || echo "⚠️ No previous artifact found. Proceeding without it."
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
-
-      - name: Load Last PR Move (If Exists)
-        run: |
-          LAST_PR_MOVE=".last_pr_move"
-          if [ -f "$LAST_PR_MOVE" ]; then
-            echo "✅ Found previous PR move state."
-            cat "$LAST_PR_MOVE"
+          if [ -f "$ARTIFACT_PATH" ]; then
+            echo "✅ Found previous PR move state at $ARTIFACT_PATH"
+            cat "$ARTIFACT_PATH"
           else
             echo "⚠️ No previous PR move state found, creating empty file."
-            echo '{}' > "$LAST_PR_MOVE"
+            echo '{}' > "$ARTIFACT_PATH"
           fi
+
+          echo "LAST_PR_MOVE=$ARTIFACT_PATH" >> $GITHUB_ENV
 
       - name: Query GitHub Project for Moved Cards
         env:
@@ -100,8 +90,8 @@ jobs:
             COLUMN_DESCRIPTION="No description available."
           fi
 
-          # ✅ Ensure `.last_pr_move` exists before using it
-          LAST_PR_MOVE=".last_pr_move"
+          # ✅ Load last PR move state
+          LAST_PR_MOVE="$LAST_PR_MOVE"
           if [ -f "$LAST_PR_MOVE" ]; then
             LAST_PR_TITLE=$(jq -r '.title' "$LAST_PR_MOVE")
             LAST_COLUMN_NAME=$(jq -r '.column' "$LAST_PR_MOVE")
@@ -112,8 +102,9 @@ jobs:
             fi
           fi
 
-          # ✅ Save the last PR move for future runs
+          # ✅ Save new PR move state
           echo "{\"title\": \"$PR_TITLE\", \"column\": \"$COLUMN_NAME\"}" > "$LAST_PR_MOVE"
+          chmod 644 "$LAST_PR_MOVE"  # ✅ Ensure readable permissions
 
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
@@ -123,24 +114,23 @@ jobs:
 
       - name: Debug Last PR Move File
         run: |
-          echo "Checking if .last_pr_move was created..."
-          ls -lah . || echo "⚠️ Current directory is empty!"
-          ls -lah .last_pr_move || echo "⚠️ File .last_pr_move not found!"
-          cat .last_pr_move || echo "⚠️ File is empty!"
+          echo "Checking if $LAST_PR_MOVE was created..."
+          ls -lah "$LAST_PR_MOVE" || echo "⚠️ File not found!"
+          cat "$LAST_PR_MOVE" || echo "⚠️ File is empty!"
 
-      - name: Ensure Cache File Exists Before Uploading
+      - name: Ensure File Exists Before Uploading
         run: |
-          if [ ! -f ".last_pr_move" ]; then
-            echo "Error: .last_pr_move not found! Creating a default empty state."
-            echo "{}" > .last_pr_move
+          if [ ! -f "$LAST_PR_MOVE" ]; then
+            echo "Error: $LAST_PR_MOVE not found! Creating an empty file."
+            echo '{}' > "$LAST_PR_MOVE"
           fi
-          chmod 644 .last_pr_move # ✅ Fix file permission issue
+          chmod 644 "$LAST_PR_MOVE"
 
       - name: Upload Last PR Move (Ensure Persistence)
         uses: actions/upload-artifact@v4
         with:
           name: last-pr-move
-          path: .last_pr_move
+          path: ${{ env.LAST_PR_MOVE }}
           retention-days: 7
           if-no-files-found: error # ✅ Fail if the file is missing
 
