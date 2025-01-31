@@ -1,0 +1,86 @@
+name: Monitor Project Board
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # Runs every 5 minutes
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  check_project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Project Board for Moved Cards
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_ID: "YOUR_PROJECT_ID" # Replace with actual project ID
+        run: |
+          echo "Fetching project data..."
+          QUERY='
+          {
+            organization(login: "YOUR_ORG") {
+              projectV2(number: YOUR_PROJECT_NUMBER) {
+                items(first: 10) {
+                  nodes {
+                    id
+                    content {
+                      ... on PullRequest {
+                        title
+                        url
+                      }
+                    }
+                    fieldValues(first: 10) {
+                      nodes {
+                        name
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }'
+          RESPONSE=$(gh api graphql -f query="$QUERY")
+
+          echo "GraphQL Response: $RESPONSE"
+
+          # Parse and extract the latest PR moved
+          PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.organization.projectV2.items.nodes[0].content.title')
+          PR_LINK=$(echo "$RESPONSE" | jq -r '.data.organization.projectV2.items.nodes[0].content.url')
+          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.organization.projectV2.items.nodes[0].fieldValues.nodes[0].value')
+
+          if [[ -n "$PR_TITLE" && -n "$COLUMN_NAME" ]]; then
+            echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
+            echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
+            echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
+            echo "Detected PR: $PR_TITLE moved to $COLUMN_NAME"
+          else
+            echo "No PR move detected"
+            exit 0
+          fi
+
+      - name: Trigger Email Notification
+        if: env.PR_TITLE != ''
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fetch = require('node-fetch');
+            const body = {
+              personalizations: [{
+                to: [{ email: "amartin@linuxfoundation.org" }]
+              }],
+              from: { email: "amartin@linuxfoundation.org" },
+              subject: `${process.env.PR_TITLE} is in ${process.env.COLUMN_NAME}`,
+              content: [{
+                type: "text/plain",
+                value: `Hello,\n\nWe have created a draft of '${process.env.PR_TITLE}' that is ready for your discussion.\n\nLink to PR: ${process.env.PR_LINK}`
+              }]
+            };
+
+            await fetch("https://api.sendgrid.com/v3/mail/send", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${process.env.SENDGRID_API_KEY}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(body)
+            });
