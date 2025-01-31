@@ -11,22 +11,9 @@ jobs:
     steps:
       - name: Extract PR Info
         run: |
-          PR_TITLE="${{ github.event.project_card.note }}"
-          PR_LINK="${{ github.event.project_card.content_url }}"
-          COLUMN_NAME="${{ github.event.project_card.column_name }}"
-
-          # Ensure PR_TITLE and PR_LINK are not empty
-          if [[ -z "$PR_TITLE" ]]; then
-            PR_TITLE="Unknown PR"
-          fi
-          if [[ -z "$PR_LINK" ]]; then
-            PR_LINK="No link available"
-          fi
-
-          # Save to GitHub environment variables
-          echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
-          echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
-          echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
+          echo "PR_TITLE=${{ github.event.project_card.note }}" >> $GITHUB_ENV
+          echo "PR_LINK=${{ github.event.project_card.content_url }}" >> $GITHUB_ENV
+          echo "COLUMN_NAME=${{ github.event.project_card.column_name }}" >> $GITHUB_ENV
 
       - name: Debug Email Content
         run: |
@@ -36,10 +23,18 @@ jobs:
 
       - name: Send Email via SendGrid API (cURL)
         run: |
-          # Load variables from GitHub environment
+          # Ensure variables are available from GitHub Environment
           PR_TITLE="$PR_TITLE"
           PR_LINK="$PR_LINK"
           COLUMN_NAME="$COLUMN_NAME"
+
+          # Default values if empty
+          if [[ -z "$PR_TITLE" ]]; then
+            PR_TITLE="Unknown PR"
+          fi
+          if [[ -z "$PR_LINK" ]]; then
+            PR_LINK="No link available"
+          fi
 
           # Construct JSON payload correctly
           JSON_DATA=$(jq -n \
