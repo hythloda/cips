@@ -9,14 +9,15 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Check if Artifact Exists (Prevent Errors)
+      - name: Check for Existing Cached PR Move
+        id: check-cache
         run: |
           echo "Checking for last-pr-move artifact..."
           ARTIFACT_EXISTS=$(gh api repos/${{ github.repository }}/actions/artifacts --paginate | jq '.artifacts[] | select(.name == "last-pr-move") | .id' || echo "null")
           if [[ "$ARTIFACT_EXISTS" == "null" ]]; then
             echo "No previous artifact found. Skipping download."
           else
-            echo "Found artifact: $ARTIFACT_EXISTS. Proceeding with download."
+            echo "Found artifact: $ARTIFACT_EXISTS. Downloading..."
             gh run download -n last-pr-move || echo "Failed to download artifact, continuing without it."
           fi
 
@@ -85,7 +86,7 @@ jobs:
             COLUMN_DESCRIPTION="No description available."
           fi
 
-          # ✅ Load last PR move from cache (if it exists)
+          # ✅ Ensure `.last_pr_move` exists before using it
           LAST_PR_MOVE=".last_pr_move"
           if [ -f "$LAST_PR_MOVE" ]; then
             LAST_PR_TITLE=$(jq -r '.title' "$LAST_PR_MOVE")
@@ -105,6 +106,13 @@ jobs:
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
           echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
+
+      - name: Ensure Cache File Exists Before Uploading
+        run: |
+          if [ ! -f ".last_pr_move" ]; then
+            echo "Error: .last_pr_move not found! Creating a default empty state."
+            echo "{}" > .last_pr_move
+          fi
 
       - name: Upload Last PR Move (Ensure Persistence)
         uses: actions/upload-artifact@v4 # ✅ Corrected artifact version
