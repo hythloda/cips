@@ -12,7 +12,7 @@ jobs:
       - name: Query GitHub Project for Moved Cards
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK" # Use your actual Project ID
+          PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK"
         run: |
           echo "Fetching project data..."
           QUERY='
