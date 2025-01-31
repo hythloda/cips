@@ -19,22 +19,19 @@ jobs:
       - name: Download Last PR Move from Artifact
         continue-on-error: true
         run: |
+          mkdir -p /tmp/artifacts
           echo "Attempting to download last PR move..."
-          gh run download -n last-pr-move || echo "⚠️ No previous artifact found. Proceeding without it."
+          gh run download -n last-pr-move -D /tmp/artifacts || echo "⚠️ No previous artifact found."
+
+          if [ -f "/tmp/artifacts/last-pr-move/last_pr_move.json" ]; then
+            echo "✅ Found previous PR move state, loading..."
+            mv "/tmp/artifacts/last-pr-move/last_pr_move.json" "/tmp/last_pr_move.json"
+          else
+            echo "⚠️ No previous PR move state found. Creating a new one."
+            echo '{}' > "/tmp/last_pr_move.json"
+          fi
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
-
-      - name: Load Last PR Move (If Exists)
-        run: |
-          LAST_PR_MOVE="/tmp/last_pr_move.json"
-          if [ -f "$LAST_PR_MOVE" ]; then
-            echo "✅ Found previous PR move state."
-            cat "$LAST_PR_MOVE"
-          else
-            echo "⚠️ No previous PR move state found, creating empty file."
-            echo '{}' > "$LAST_PR_MOVE"
-          fi
-          echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
 
       - name: Query GitHub Project for Moved Cards
         env:
@@ -89,50 +86,40 @@ jobs:
           PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title')
           PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url')
           COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name')
-          OPTION_ID=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .optionId')
-
-          COLUMN_DESCRIPTION=$(echo "$RESPONSE" | jq -r '.data.node.fields.nodes[] | select(.name=="Status") | .options[] | select(.id=="'"$OPTION_ID"'") | .description')
 
           if [[ -z "$COLUMN_NAME" || "$COLUMN_NAME" == "null" ]]; then
             COLUMN_NAME="Unknown Column"
           fi
 
-          if [[ -z "$COLUMN_DESCRIPTION" || "$COLUMN_DESCRIPTION" == "null" ]]; then
-            COLUMN_DESCRIPTION="No description available."
-          fi
-
-          # ✅ Load last PR move state
-          LAST_PR_MOVE="$LAST_PR_MOVE"
+          LAST_PR_MOVE="/tmp/last_pr_move.json"
           if [ -f "$LAST_PR_MOVE" ]; then
             LAST_PR_TITLE=$(jq -r '.title' "$LAST_PR_MOVE")
             LAST_COLUMN_NAME=$(jq -r '.column' "$LAST_PR_MOVE")
 
-            echo "🔍 Last recorded PR: $LAST_PR_TITLE in column $LAST_COLUMN_NAME"
-            echo "🔍 Current detected PR: $PR_TITLE in column $COLUMN_NAME"
+            echo "🔍 Previous PR: $LAST_PR_TITLE was in column: $LAST_COLUMN_NAME"
+            echo "🔍 Current PR: $PR_TITLE is in column: $COLUMN_NAME"
 
             if [[ "$PR_TITLE" == "$LAST_PR_TITLE" && "$COLUMN_NAME" == "$LAST_COLUMN_NAME" ]]; then
               echo "✅ No PR move detected. Exiting."
-              exit 0  # 🔹 Prevents unnecessary email
+              exit 0  # Prevents unnecessary email
             fi
           fi
 
-          # ✅ Save new PR move state
           echo "{\"title\": \"$PR_TITLE\", \"column\": \"$COLUMN_NAME\"}" > "$LAST_PR_MOVE"
-          chmod 644 "$LAST_PR_MOVE"  # ✅ Ensure readable permissions
+          chmod 644 "$LAST_PR_MOVE"
 
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
-          echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
-          echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
+          echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME"
 
-      - name: Upload Last PR Move (Ensure Persistence)
+      - name: Upload Last PR Move
         uses: actions/upload-artifact@v4
         with:
           name: last-pr-move
-          path: ${{ env.LAST_PR_MOVE }}
+          path: /tmp/last_pr_move.json
           retention-days: 7
-          if-no-files-found: error # ✅ Fail if the file is missing
+          if-no-files-found: error
 
       - name: Send Email via SendGrid API (GitHub Script)
         uses: actions/github-script@v6
@@ -141,54 +128,29 @@ jobs:
         with:
           script: |
             const columnName = (process.env.COLUMN_NAME || "unknown-column")
-              .toLowerCase()   
-              .replace(/\s+/g, '-') 
-              .replace(/[^a-z0-9-]/g, '');
-            const columnDescription = process.env.COLUMN_DESCRIPTION || "No description available.";
-
-            // ✅ Dynamic email mapping based on column name
-            const columnEmailMapping = {
-              "cip-announce": "amartin@linuxfoundation.org",
-              "cip-vote": "amanda@riscv.org",
-              "cip-discuss": "amanda@r-consortium.org",
-              "draft": "amartin@linuxfoundation.org"
-            };
-
-            const emailRecipient = columnEmailMapping[columnName] || `amartin@linuxfoundation.org`;
+              .toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            const emailRecipient = `amartin@linuxfoundation.org`;
             const subject = `${process.env.PR_TITLE} is in ${columnName}`;
-            const body = `Hello,\n\n${process.env.PR_TITLE} ${columnDescription}\n\nLink to PR: ${process.env.PR_LINK}\n\nPlease let us know if you have any questions or concerns.`;
+            const body = `Hello,\n\n${process.env.PR_TITLE}\n\nLink to PR: ${process.env.PR_LINK}\n\nPlease let us know if you have any questions or concerns.`;
 
             const payload = {
-              personalizations: [{
-                to: [{ email: emailRecipient }]
-              }],
+              personalizations: [{ to: [{ email: emailRecipient }] }],
               from: { email: "amartin@linuxfoundation.org" },
               subject: subject,
-              content: [{
-                type: "text/plain",
-                value: body
-              }],
-              tracking_settings: {
-                click_tracking: { enable: false }
-              }
+              content: [{ type: "text/plain", value: body }],
+              tracking_settings: { click_tracking: { enable: false } }
             };
 
             console.log(`📤 Sending email to: ${emailRecipient}`);
-            console.log("📤 Sending email with this JSON payload:");
             console.log(JSON.stringify(payload, null, 2));
 
             const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
               method: "POST",
-              headers: {
-                "Authorization": `Bearer ${process.env.SENDGRID_API_KEY}`,
-                "Content-Type": "application/json"
-              },
+              headers: { "Authorization": `Bearer ${process.env.SENDGRID_API_KEY}`, "Content-Type": "application/json" },
               body: JSON.stringify(payload)
             });
 
             console.log(`📨 SendGrid Response Status: ${response.status}`);
-            console.log(`📨 SendGrid Response Body:`, await response.text());
+            console.log(await response.text());
 
-            if (!response.ok) {
-              process.exit(1);
-            }
+            if (!response.ok) { process.exit(1); }
