@@ -2,7 +2,7 @@ name: Monitor GitHub Project Moves
 
 on:
   # schedule:
-  #  - cron: "*/5 * * * *" # Runs every 5 minutes
+  #   - cron: "*/5 * * * *" # Runs every 5 minutes
   workflow_dispatch:
 
 jobs:
@@ -38,6 +38,7 @@ jobs:
           echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
 
       - name: Query GitHub Project for Moved Cards
+        id: query-project
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK"
@@ -87,10 +88,10 @@ jobs:
 
           echo "GraphQL Response: $RESPONSE"
 
-          PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title')
-          PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url')
-          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name')
-          OPTION_ID=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .optionId')
+          PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title // empty')
+          PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url // empty')
+          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name // empty')
+          OPTION_ID=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .optionId // empty')
 
           COLUMN_DESCRIPTION=$(echo "$RESPONSE" | jq -r --arg optionId "$OPTION_ID" '
             .data.node.fields.nodes[] 
@@ -99,10 +100,15 @@ jobs:
             | select(.id==$optionId) 
             | .description // "No description available."')
 
+          if [[ -z "$PR_TITLE" || "$PR_TITLE" == "null" ]]; then
+            PR_TITLE="Unknown PR"
+          fi
+          if [[ -z "$PR_LINK" || "$PR_LINK" == "null" ]]; then
+            PR_LINK="No link available"
+          fi
           if [[ -z "$COLUMN_NAME" || "$COLUMN_NAME" == "null" ]]; then
             COLUMN_NAME="Unknown Column"
           fi
-
           if [[ -z "$COLUMN_DESCRIPTION" || "$COLUMN_DESCRIPTION" == "null" ]]; then
             COLUMN_DESCRIPTION="No description available."
           fi
@@ -137,6 +143,7 @@ jobs:
           key: last-pr-move-cache
 
       - name: Send Email via SendGrid API (GitHub Script)
+        if: success() && env.PR_TITLE != 'Unknown PR'
         uses: actions/github-script@v6
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
@@ -148,7 +155,6 @@ jobs:
               .replace(/[^a-z0-9-]/g, '');
             const columnDescription = process.env.COLUMN_DESCRIPTION || "No description available.";
 
-            // ✅ Dynamic email mapping based on column name
             const columnEmailMapping = {
               "cip-announce": "amartin@linuxfoundation.org",
               "cip-vote": "amanda@riscv.org",
