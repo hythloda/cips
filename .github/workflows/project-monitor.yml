@@ -22,6 +22,8 @@ jobs:
       - name: Load Last PR Move State
         run: |
           LAST_PR_MOVE="/tmp/artifacts/last_pr_move.json"
+
+          # ✅ Ensure the file exists before reading it
           if [ -f "$LAST_PR_MOVE" ]; then
             echo "✅ Found previous PR move state:"
             cat "$LAST_PR_MOVE"
@@ -29,6 +31,7 @@ jobs:
             echo "⚠️ No previous PR move state found. Creating a new one."
             echo '{}' > "$LAST_PR_MOVE"
           fi
+
           echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
 
       - name: Query GitHub Project for Moved Cards
@@ -127,6 +130,12 @@ jobs:
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
           echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
+
+      - name: Debug Last PR Move File
+        run: |
+          echo "Checking if last PR move file was created..."
+          ls -lah /tmp/artifacts || echo "⚠️ Artifacts directory is empty!"
+          cat /tmp/artifacts/last_pr_move.json || echo "⚠️ File is empty!"
 
       - name: Upload Last PR Move (Ensure Persistence)
         uses: actions/upload-artifact@v4
