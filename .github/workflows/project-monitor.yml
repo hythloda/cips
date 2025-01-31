@@ -64,13 +64,12 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const fetch = require('node-fetch');
             const body = {
               personalizations: [{
                 to: [{ email: "amartin@linuxfoundation.org" }]
               }],
               from: { email: "amartin@linuxfoundation.org" },
-              subject: `${process.env.PR_TITLE} is in ${process.env.COLUMN_NAME}`,
+              subject: `${process.env.PR_TITLE} is in ${process.env.COLUMN_NAME || "an unknown column"}`,
               content: [{
                 type: "text/plain",
                 value: `Hello,\n\nWe have created a draft of '${process.env.PR_TITLE}' that is ready for your discussion.\n\nLink to PR: ${process.env.PR_LINK}`
