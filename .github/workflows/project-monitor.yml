@@ -16,27 +16,26 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
-      - name: Download Last PR Move from Artifact
+      - name: Download Last PR Move Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: last-pr-move
+          path: /tmp/artifacts
         continue-on-error: true
-        run: |
-          echo "Attempting to download last PR move..."
-          gh run download -n last-pr-move || echo "⚠️ No previous artifact found. Proceeding without it."
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
-      - name: Load Last PR Move (If Exists)
+      - name: Load Last PR Move State
         run: |
-          LAST_PR_MOVE="/tmp/last_pr_move.json"
+          LAST_PR_MOVE="/tmp/artifacts/last_pr_move.json"
           if [ -f "$LAST_PR_MOVE" ]; then
-            echo "✅ Found previous PR move state."
+            echo "✅ Found previous PR move state:"
             cat "$LAST_PR_MOVE"
           else
-            echo "⚠️ No previous PR move state found, creating empty file."
+            echo "⚠️ No previous PR move state found. Creating a new one."
             echo '{}' > "$LAST_PR_MOVE"
           fi
           echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
 
-      - name: Query GitHub Project for Moved Cards
+     - name: Query GitHub Project for Moved Cards
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK"
@@ -89,42 +88,33 @@ jobs:
           PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title')
           PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url')
           COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name')
-          OPTION_ID=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .optionId')
-
-          COLUMN_DESCRIPTION=$(echo "$RESPONSE" | jq -r '.data.node.fields.nodes[] | select(.name=="Status") | .options[] | select(.id=="'"$OPTION_ID"'") | .description')
 
           if [[ -z "$COLUMN_NAME" || "$COLUMN_NAME" == "null" ]]; then
             COLUMN_NAME="Unknown Column"
           fi
 
-          if [[ -z "$COLUMN_DESCRIPTION" || "$COLUMN_DESCRIPTION" == "null" ]]; then
-            COLUMN_DESCRIPTION="No description available."
-          fi
-
-          # ✅ Load last PR move state
-          LAST_PR_MOVE="$LAST_PR_MOVE"
+          LAST_PR_MOVE="${{ env.LAST_PR_MOVE }}"
           if [ -f "$LAST_PR_MOVE" ]; then
             LAST_PR_TITLE=$(jq -r '.title' "$LAST_PR_MOVE")
             LAST_COLUMN_NAME=$(jq -r '.column' "$LAST_PR_MOVE")
 
-            echo "🔍 Last recorded PR: $LAST_PR_TITLE in column $LAST_COLUMN_NAME"
-            echo "🔍 Current detected PR: $PR_TITLE in column $COLUMN_NAME"
+            echo "🔍 Previous PR: $LAST_PR_TITLE was in column: $LAST_COLUMN_NAME"
+            echo "🔍 Current PR: $PR_TITLE is in column: $COLUMN_NAME"
 
             if [[ "$PR_TITLE" == "$LAST_PR_TITLE" && "$COLUMN_NAME" == "$LAST_COLUMN_NAME" ]]; then
               echo "✅ No PR move detected. Exiting."
-              exit 0  # 🔹 Prevents unnecessary email
+              exit 0  # Prevents unnecessary email
             fi
           fi
 
-          # ✅ Save new PR move state
           echo "{\"title\": \"$PR_TITLE\", \"column\": \"$COLUMN_NAME\"}" > "$LAST_PR_MOVE"
-          chmod 644 "$LAST_PR_MOVE"  # ✅ Ensure readable permissions
+          chmod 644 "$LAST_PR_MOVE"
 
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
-          echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
-          echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
+          echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME"
+
 
       - name: Upload Last PR Move (Ensure Persistence)
         uses: actions/upload-artifact@v4
