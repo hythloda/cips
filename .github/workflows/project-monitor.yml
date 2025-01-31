@@ -54,7 +54,7 @@ jobs:
           echo "$RESPONSE"
       - name: Query GitHub Project for Moved Cards
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use your PAT token instead of default GITHUB_TOKEN
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use PAT token instead of default GITHUB_TOKEN
           PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK" # Replace with your actual project ID
         run: |
           echo "Fetching project data..."
@@ -91,7 +91,7 @@ jobs:
 
           PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title')
           PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url')
-          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[0].name')
+          COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.typename=="ProjectV2ItemFieldSingleSelectValue") | .name')
 
           if [[ -z "$COLUMN_NAME" || "$COLUMN_NAME" == "null" ]]; then
             COLUMN_NAME="Unknown Column"
@@ -100,7 +100,7 @@ jobs:
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
-          echo "Detected PR: $PR_TITLE moved to $COLUMN_NAME"
+          echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME"
 
       - name: Send Email via SendGrid API (GitHub Script)
         if: env.PR_TITLE != ''
