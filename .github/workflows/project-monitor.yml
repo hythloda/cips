@@ -9,35 +9,19 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Set Up GitHub CLI
-        run: |
-          echo "Configuring GitHub CLI..."
-          gh auth setup-git
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
-
       - name: Ensure Artifacts Directory Exists
         run: mkdir -p /tmp/artifacts
 
-      - name: Download Last PR Move Artifact
+      - name: Download Last PR Move Artifact (Handle Missing Case)
         uses: actions/download-artifact@v4
         with:
           name: last-pr-move
           path: /tmp/artifacts
-        continue-on-error: true
-
-      - name: Download Last PR Move Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: last-pr-move
-          path: /tmp/artifacts
-        continue-on-error: true
+        continue-on-error: true # ✅ Prevents failure when the artifact is missing
 
       - name: Load Last PR Move State
         run: |
           LAST_PR_MOVE="/tmp/artifacts/last_pr_move.json"
-
-          # ✅ Ensure the file exists before reading it
           if [ -f "$LAST_PR_MOVE" ]; then
             echo "✅ Found previous PR move state:"
             cat "$LAST_PR_MOVE"
@@ -45,7 +29,6 @@ jobs:
             echo "⚠️ No previous PR move state found. Creating a new one."
             echo '{}' > "$LAST_PR_MOVE"
           fi
-
           echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
 
       - name: Query GitHub Project for Moved Cards
@@ -101,9 +84,22 @@ jobs:
           PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.title')
           PR_LINK=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].content.url')
           COLUMN_NAME=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .name')
+          OPTION_ID=$(echo "$RESPONSE" | jq -r '.data.node.items.nodes[0].fieldValues.nodes[] | select(.__typename=="ProjectV2ItemFieldSingleSelectValue") | .optionId')
 
+          COLUMN_DESCRIPTION=$(echo "$RESPONSE" | jq -r --arg optionId "$OPTION_ID" '
+            .data.node.fields.nodes[] 
+            | select(.name=="Status") 
+            | .options[] 
+            | select(.id==$optionId) 
+            | .description // "No description available."')
+
+          # ✅ Ensure values are set
           if [[ -z "$COLUMN_NAME" || "$COLUMN_NAME" == "null" ]]; then
             COLUMN_NAME="Unknown Column"
+          fi
+
+          if [[ -z "$COLUMN_DESCRIPTION" || "$COLUMN_DESCRIPTION" == "null" ]]; then
+            COLUMN_DESCRIPTION="No description available."
           fi
 
           LAST_PR_MOVE="${{ env.LAST_PR_MOVE }}"
@@ -129,7 +125,8 @@ jobs:
           echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
-          echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME"
+          echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
+          echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
 
       - name: Upload Last PR Move (Ensure Persistence)
         uses: actions/upload-artifact@v4
@@ -137,7 +134,7 @@ jobs:
           name: last-pr-move
           path: /tmp/artifacts/last_pr_move.json
           retention-days: 7
-          if-no-files-found: error # ✅ Fail if the file is missing
+          if-no-files-found: warn # ✅ Warn instead of failing
 
       - name: Send Email via SendGrid API (GitHub Script)
         uses: actions/github-script@v6
