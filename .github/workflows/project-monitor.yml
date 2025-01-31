@@ -9,10 +9,18 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
+      - name: Restore Last PR Move State from Cache
+        id: cache-last-pr
+        uses: actions/cache@v4
+        with:
+          path: /tmp/last_pr_move.json
+          key: last-pr-move-cache
+
       - name: Ensure Last PR Move File Exists
         run: |
           mkdir -p /tmp
           LAST_PR_MOVE="/tmp/last_pr_move.json"
+
           if [ ! -f "$LAST_PR_MOVE" ]; then
             echo "⚠️ No previous PR move state found. Creating a new one."
             echo '{"title": "INIT", "column": "INIT"}' > "$LAST_PR_MOVE"
@@ -20,23 +28,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
-      - name: Download Last PR Move Artifact (Gracefully Handle Missing)
-        uses: actions/download-artifact@v4
-        with:
-          name: last-pr-move
-          path: /tmp
-        continue-on-error: true # ✅ Prevents failure when artifact is missing
-
       - name: Load Last PR Move State
         run: |
           LAST_PR_MOVE="/tmp/last_pr_move.json"
-          if [ -f "$LAST_PR_MOVE" ]; then
-            echo "✅ Found previous PR move state:"
-            cat "$LAST_PR_MOVE"
-          else
-            echo "⚠️ No previous PR move state found. Creating a new one."
-            echo '{"title": "INIT", "column": "INIT"}' > "$LAST_PR_MOVE"
-          fi
+          echo "Checking previous PR move state..."
+          cat "$LAST_PR_MOVE" || echo "{}"
+
           echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
 
       - name: Query GitHub Project for Moved Cards
@@ -132,13 +129,11 @@ jobs:
           echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
 
-      - name: Upload Last PR Move (Ensure Persistence)
-        uses: actions/upload-artifact@v4
+      - name: Save Last PR Move State to Cache
+        uses: actions/cache@v4
         with:
-          name: last-pr-move
           path: /tmp/last_pr_move.json
-          retention-days: 7
-          if-no-files-found: error # ✅ Ensures the artifact is always uploaded
+          key: last-pr-move-cache
 
       - name: Send Email via SendGrid API (GitHub Script)
         uses: actions/github-script@v6
