@@ -1,6 +1,7 @@
 name: Notify on PR Move to CIP Columns
 
 on:
+  workflow_dispatch:
   project_card:
     types: [moved]
 
