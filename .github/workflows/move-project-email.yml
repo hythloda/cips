@@ -13,29 +13,6 @@ jobs:
         run: |
           PR_TITLE="${{ github.event.project_card.note }}"
           PR_LINK="${{ github.event.project_card.content_url }}"
-
-          # Ensure PR_TITLE and PR_LINK are not empty
-          if [[ -z "$PR_TITLE" ]]; then
-            PR_TITLE="Unknown PR"
-          fi
-          if [[ -z "$PR_LINK" ]]; then
-            PR_LINK="No link available"
-          fi
-
-          # Set GitHub environment variables (for use in later steps)
-          echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
-          echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
-
-      - name: Debug Email Content
-        run: |
-          echo "PR Title: $PR_TITLE"
-          echo "PR Link: $PR_LINK"
-
-      - name: Send Email via SendGrid API (cURL)
-        run: |
-          # Ensure variables are available
-          PR_TITLE="${{ env.PR_TITLE }}"
-          PR_LINK="${{ env.PR_LINK }}"
           COLUMN_NAME="${{ github.event.project_card.column_name }}"
 
           # Ensure PR_TITLE and PR_LINK are not empty
@@ -45,6 +22,24 @@ jobs:
           if [[ -z "$PR_LINK" ]]; then
             PR_LINK="No link available"
           fi
+
+          # Save to GitHub environment variables
+          echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
+          echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
+          echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
+
+      - name: Debug Email Content
+        run: |
+          echo "PR Title: $PR_TITLE"
+          echo "PR Link: $PR_LINK"
+          echo "Column Name: $COLUMN_NAME"
+
+      - name: Send Email via SendGrid API (cURL)
+        run: |
+          # Load variables from GitHub environment
+          PR_TITLE="$PR_TITLE"
+          PR_LINK="$PR_LINK"
+          COLUMN_NAME="$COLUMN_NAME"
 
           # Construct JSON payload correctly
           JSON_DATA=$(jq -n \
@@ -60,7 +55,7 @@ jobs:
               "subject": $subject,
               "content": [{
                 "type": "text/plain",
-                "value": $body
+                "value": $body | @json
               }]
             }')
 
