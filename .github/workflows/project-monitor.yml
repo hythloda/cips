@@ -9,21 +9,32 @@ jobs:
   check_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Check If Previous PR Move Exists
-        id: check-cache
+      - name: Set Up GitHub CLI
         run: |
-          echo "Checking for last-pr-move artifact..."
-          ARTIFACT_PATH="/tmp/last_pr_move.json"
+          echo "Configuring GitHub CLI..."
+          gh auth setup-git
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
-          if [ -f "$ARTIFACT_PATH" ]; then
-            echo "✅ Found previous PR move state at $ARTIFACT_PATH"
-            cat "$ARTIFACT_PATH"
+      - name: Download Last PR Move from Artifact
+        continue-on-error: true
+        run: |
+          echo "Attempting to download last PR move..."
+          gh run download -n last-pr-move || echo "⚠️ No previous artifact found. Proceeding without it."
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      - name: Load Last PR Move (If Exists)
+        run: |
+          LAST_PR_MOVE="/tmp/last_pr_move.json"
+          if [ -f "$LAST_PR_MOVE" ]; then
+            echo "✅ Found previous PR move state."
+            cat "$LAST_PR_MOVE"
           else
             echo "⚠️ No previous PR move state found, creating empty file."
-            echo '{}' > "$ARTIFACT_PATH"
+            echo '{}' > "$LAST_PR_MOVE"
           fi
-
-          echo "LAST_PR_MOVE=$ARTIFACT_PATH" >> $GITHUB_ENV
+          echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
 
       - name: Query GitHub Project for Moved Cards
         env:
@@ -96,6 +107,9 @@ jobs:
             LAST_PR_TITLE=$(jq -r '.title' "$LAST_PR_MOVE")
             LAST_COLUMN_NAME=$(jq -r '.column' "$LAST_PR_MOVE")
 
+            echo "🔍 Last recorded PR: $LAST_PR_TITLE in column $LAST_COLUMN_NAME"
+            echo "🔍 Current detected PR: $PR_TITLE in column $COLUMN_NAME"
+
             if [[ "$PR_TITLE" == "$LAST_PR_TITLE" && "$COLUMN_NAME" == "$LAST_COLUMN_NAME" ]]; then
               echo "✅ No PR move detected. Exiting."
               exit 0  # 🔹 Prevents unnecessary email
@@ -111,20 +125,6 @@ jobs:
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
           echo "COLUMN_DESCRIPTION=$COLUMN_DESCRIPTION" >> $GITHUB_ENV
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME - $COLUMN_DESCRIPTION"
-
-      - name: Debug Last PR Move File
-        run: |
-          echo "Checking if $LAST_PR_MOVE was created..."
-          ls -lah "$LAST_PR_MOVE" || echo "⚠️ File not found!"
-          cat "$LAST_PR_MOVE" || echo "⚠️ File is empty!"
-
-      - name: Ensure File Exists Before Uploading
-        run: |
-          if [ ! -f "$LAST_PR_MOVE" ]; then
-            echo "Error: $LAST_PR_MOVE not found! Creating an empty file."
-            echo '{}' > "$LAST_PR_MOVE"
-          fi
-          chmod 644 "$LAST_PR_MOVE"
 
       - name: Upload Last PR Move (Ensure Persistence)
         uses: actions/upload-artifact@v4
