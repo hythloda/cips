@@ -35,7 +35,7 @@ jobs:
           fi
           echo "LAST_PR_MOVE=$LAST_PR_MOVE" >> $GITHUB_ENV
 
-     - name: Query GitHub Project for Moved Cards
+      - name: Query GitHub Project for Moved Cards
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           PROJECT_ID: "PVT_kwHOAxVMgM4AxMpK"
@@ -114,7 +114,6 @@ jobs:
           echo "PR_LINK=$PR_LINK" >> $GITHUB_ENV
           echo "COLUMN_NAME=$COLUMN_NAME" >> $GITHUB_ENV
           echo "✅ Detected PR: $PR_TITLE moved to $COLUMN_NAME"
-
 
       - name: Upload Last PR Move (Ensure Persistence)
         uses: actions/upload-artifact@v4
